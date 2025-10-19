@@ -1,5 +1,6 @@
 from django.contrib.auth import get_user_model, authenticate
 from rest_framework import serializers
+from rest_framework_simplejwt.tokens import RefreshToken
 
 User = get_user_model()
 
@@ -25,6 +26,8 @@ class RegisterSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ('id', 'email', 'first_name', 'last_name', 'password', 'password2')
+        extra_kwargs = {'role': {'write_only': True}}
+
 
     def validate_email(self, value):
         if User.objects.filter(email=value).exists():
@@ -41,8 +44,12 @@ class RegisterSerializer(serializers.ModelSerializer):
         return attrs
 
     def create(self, validated_data):
-        validated_data.pop('password2')
-        return User.objects.create_user(**validated_data)
+        user = User.objects.create_user(
+            email=validated_data['email'],
+            password=validated_data.pop('password2'),
+            role='author'
+        )
+        return user
 
 
 class LoginSerializer(serializers.Serializer):
@@ -63,3 +70,10 @@ class LoginSerializer(serializers.Serializer):
             return attrs
         else:
             raise serializers.ValidationError('Необходимо указать email и пароль')
+
+
+class UserProfileSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ('id', 'role', 'first_name', 'last_name')
+        read_only_fields = ('id', 'role')
